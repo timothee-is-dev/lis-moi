@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lis-moi</title>
+<meta name="theme-color" content="#2f4a7a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lis-moi">
+<style>
+/* Mise en page : écran unique, image au centre, barre de contrôle fixée en bas, gros boutons. */
+:root{
+  --bg:#f3f5f9; --surface:#ffffff; --fg:#1b2333; --muted:#5d6880;
+  --accent:#2f4a7a; --accent-fg:#ffffff;
+  --marker:rgba(255,214,0,.55); --marker-line:rgba(255,214,0,.22); --tap:rgba(47,74,122,.18);
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#11161f; --surface:#1b2230; --fg:#e8ecf4; --muted:#9aa5bb;
+  --accent:#8fb0ec; --accent-fg:#0f1522;
+  --marker:rgba(255,214,0,.5); --marker-line:rgba(255,214,0,.2); --tap:rgba(143,176,236,.25);
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:17px;
+  display:flex;flex-direction:column;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));}
+header h1{margin:0;font-size:22px;letter-spacing:.01em}
+header h1 .ver{font-size:14px;font-weight:600;color:var(--muted);vertical-align:middle}
+main{flex:1;overflow:auto;padding:0 max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,label:focus-within{outline:3px solid var(--accent);outline-offset:3px}
+.icon{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Accueil */
+#home{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
+.big{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  width:min(280px,80vw);aspect-ratio:1;border-radius:36px;background:var(--accent);color:var(--accent-fg);
+  font-size:22px;font-weight:700;box-shadow:0 10px 30px -12px var(--accent)}
+.big .icon{width:84px;height:84px;stroke-width:1.8}
+.ghost{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:14px;
+  background:var(--surface);color:var(--fg);font-weight:700}
+.ghost .icon{width:22px;height:22px}
+.hint{color:var(--muted);max-width:32ch;line-height:1.45;margin:0;font-size:15px}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+/* Chargement */
+#busy{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.bar{width:min(320px,80vw);height:14px;border-radius:7px;background:var(--surface);overflow:hidden}
+.bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+#busyText{color:var(--muted)}
+
+/* Lecteur */
+#reader{display:flex;flex-direction:column;gap:12px}
+.page{position:relative;border-radius:12px;overflow:hidden;background:var(--surface);
+  box-shadow:0 4px 18px -10px rgba(0,0,0,.35)}
+.page img{display:block;width:100%;height:auto}
+.page svg{position:absolute;inset:0;width:100%;height:100%;touch-action:manipulation}
+.page svg rect{fill:transparent;rx:4}
+.page svg rect.in-seg{fill:var(--marker-line)}
+.page svg rect.now{fill:var(--marker)}
+.page svg circle.tap{fill:var(--tap)}
+details{color:var(--muted);font-size:14px}
+details pre{white-space:pre-wrap;font-family:var(--font);color:var(--fg);background:var(--surface);padding:12px;border-radius:10px}
+
+/* Barre de contrôle */
+.controls{position:sticky;bottom:0;display:flex;flex-direction:column;gap:10px;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:var(--surface);box-shadow:0 -6px 20px -14px rgba(0,0,0,.4)}
+.row{display:flex;align-items:center;justify-content:center;gap:22px}
+.ctl{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:var(--bg)}
+.ctl.main{width:84px;height:84px;background:var(--accent);color:var(--accent-fg)}
+.ctl.main .icon{width:40px;height:40px}
+.ctl:disabled{opacity:.35}
+.speed{display:flex;align-items:center;gap:12px;justify-content:center;color:var(--muted)}
+.speed input{width:min(220px,50vw);accent-color:var(--accent)}
+.speed .icon{width:22px;height:22px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));
+  background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;max-width:90vw;font-size:15px}
+@media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+#status{display:flex;flex-direction:column;gap:6px;align-items:center;font-size:14px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--surface)}
+.chip::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.chip.ok::before{background:#2e9d5b}
+.chip.warn::before{background:#d98c00}
+button.chip{cursor:pointer}
+.speed output{min-width:4.2ch;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums}
+.hdr{display:flex;gap:10px;align-items:center}
+.iconbtn{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--surface)}
+.iconbtn .icon{width:24px;height:24px}
+.install{display:flex;flex-direction:column;gap:8px;align-items:center;max-width:34ch;padding:14px 16px;border-radius:16px;
+  background:var(--surface);font-size:15px;line-height:1.4}
+.install b{font-size:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:14px;
+  background:var(--accent);color:var(--accent-fg);font-weight:700}
+.btn.sec{background:var(--bg);color:var(--fg)}
+.btn:disabled{opacity:.5}
+dialog{border:0;border-radius:20px;padding:0;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 32px);
+  background:var(--surface);color:var(--fg);box-shadow:0 20px 60px -20px rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(10,14,22,.5)}
+.dlg{display:flex;flex-direction:column;gap:16px;padding:20px}
+.dlg h2{margin:0;font-size:20px}
+.opt{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--bg);cursor:pointer}
+.opt input{margin-top:4px;width:20px;height:20px;accent-color:var(--accent);flex:none}
+.opt .t{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}
+.opt small{color:var(--muted);line-height:1.4}
+.opt select{font:inherit;padding:8px;border-radius:10px;border:1px solid var(--muted);background:var(--surface);color:var(--fg);max-width:100%}
+.bar.small{width:100%;height:8px}
+.dlg .speed{justify-content:flex-start}
+.dlg .speed input{flex:1;width:auto}
+.dlg .actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lis-moi <small class="ver">v6</small></h1>
+  <div class="hdr">
+  <button class="iconbtn" id="voixBtn" aria-label="Réglages de la voix">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+  </button>
+  <label class="ghost" id="newBtn" hidden>
+    <svg class="icon" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    Nouvelle photo
+    <input type="file" accept="image/*" capture="environment" id="file2">
+  </label>
+  </div>
+</header>
+
+<main>
+  <section id="home">
+    <label class="big" aria-label="Prendre une photo">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      Photo
+      <input type="file" accept="image/*" capture="environment" id="file1">
+    </label>
+    <label class="ghost">
+      <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg>
+      Choisir une image
+      <input type="file" accept="image/*" id="file3">
+    </label>
+    <p class="hint">Prends la feuille bien à plat, toute la page dans l'image, avec de la lumière.</p>
+    <div class="install" id="installCard" hidden>
+      <b>Une voix plus naturelle</b>
+      <span>Plus claire, qui articule mieux, et qui marche sans internet. À installer une seule fois (environ 82 Mo, de préférence en wifi).</span>
+      <button class="btn" id="installBtn">Installer la voix</button>
+      <div class="bar small" id="installBar" hidden><i></i></div>
+    </div>
+    <div id="status">
+      <span class="chip" id="offChip">Vérification du mode hors ligne…</span>
+      <button class="chip" id="voiceChip">Recherche de la voix…</button>
+    </div>
+  </section>
+
+  <section id="busy" hidden>
+    <div class="bar"><i id="busyBar"></i></div>
+    <div id="busyText">Préparation…</div>
+  </section>
+
+  <section id="reader" hidden>
+    <div class="page" id="page">
+      <img id="photo" alt="Photo de la feuille">
+      <svg id="overlay" aria-label="Touche un endroit du texte pour le lire à partir de là"></svg>
+    </div>
+    <details><summary>Texte détecté (pour l'adulte)</summary><pre id="rawText"></pre></details>
+  </section>
+</main>
+
+<div class="controls" id="controls" hidden>
+  <div class="row">
+    <button class="ctl" id="prevBtn" aria-label="Revenir en arrière">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M6 5v14"/><path d="M19 5L9 12l10 7z" fill="currentColor"/></svg>
+    </button>
+    <button class="ctl main" id="playBtn" aria-label="Lire">
+      <svg class="icon" viewBox="0 0 24 24" id="playIcon"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>
+    </button>
+    <button class="ctl" id="nextBtn" aria-label="Phrase suivante">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M18 5v14"/><path d="M5 5l10 7-10 7z" fill="currentColor"/></svg>
+    </button>
+  </div>
+  <div class="speed">
+    <span aria-hidden="true">🐢</span>
+    <input type="range" id="rate" min="0.5" max="1.3" step="0.05" value="0.9" aria-label="Vitesse de lecture">
+    <span aria-hidden="true">🐇</span>
+    <output id="rateOut" for="rate">0,9×</output>
+  </div>
+</div>
+
+<dialog id="voixDlg" aria-labelledby="voixTitle">
+  <form method="dialog" class="dlg">
+    <h2 id="voixTitle">Réglages de la voix</h2>
+    <label class="opt">
+      <input type="radio" name="moteur" value="naturelle">
+      <span class="t"><b>Voix naturelle</b>
+        <small id="natInfo">Plus claire et moins robotique. Marche sans internet une fois installée (environ 82 Mo).</small>
+        <span><button type="button" class="btn" id="natInstall">Installer</button></span>
+        <div class="bar small" id="natBar" hidden><i></i></div>
+      </span>
+    </label>
+    <label class="opt">
+      <input type="radio" name="moteur" value="systeme">
+      <span class="t"><b>Voix du téléphone</b>
+        <select id="sysVoice" aria-label="Voix du téléphone"></select>
+        <small>Disponible tout de suite, mais souvent plus robotique.</small>
+      </span>
+    </label>
+    <div class="speed">
+      <span>Vitesse</span>
+      <input type="range" id="rate2" min="0.5" max="1.3" step="0.05" value="0.9" aria-label="Vitesse de lecture">
+      <output id="rateOut2">0,9×</output>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn sec" id="essaiBtn">Écouter un essai</button>
+      <button class="btn" value="ok">Fermer</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" hidden></div>
+
+<script src="ocr.js"></script>
+<script src="phrases.js"></script>
+<script src="voix.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const synth = window.speechSynthesis;
+const SVGNS = "http://www.w3.org/2000/svg";
+
+let words = [];      // {text, boxes:[...], seg, charStart, rects:[...]}
+let segs = [];       // {text, wordIdx:[...]}
+let cur = { seg: 0, word: 0 };
+let playing = false;
+let token = 0;
+
+/* ---------- Voix : état et réglages ---------- */
+const fmtRate = r => r.toFixed(2).replace(/0$/, "").replace(".", ",") + "×";
+let natInstalled = false;
+function rate(){ return parseFloat($("rate").value); }
+function setRate(r, restart){
+  r = Math.min(1.3, Math.max(0.5, r));
+  $("rate").value = $("rate2").value = r;
+  $("rateOut").textContent = $("rateOut2").textContent = fmtRate(r);
+  Voix.set("vitesse", r);
+  if (restart && playing) playFrom(cur.seg, cur.word);
+}
+async function refreshVoice(){
+  natInstalled = await Voix.installed();
+  const S = Voix.settings;
+  if (S.moteur === "naturelle" && !natInstalled) Voix.set("moteur", "systeme");
+  const chip = $("voiceChip");
+  const sv = Voix.systemVoice();
+  if (S.moteur === "naturelle"){ chip.className = "chip ok"; chip.textContent = "Voix naturelle (hors ligne)"; }
+  else if (!window.speechSynthesis){ chip.className = "chip warn"; chip.textContent = "Pas de voix dans ce navigateur"; }
+  else if (sv){ chip.className = "chip " + (sv.localService ? "ok" : "warn"); chip.textContent = "Voix : " + sv.name + (sv.localService ? "" : " (en ligne)"); }
+  else { chip.className = "chip warn"; chip.textContent = "Aucune voix française installée"; }
+  $("installCard").hidden = natInstalled;
+  // fenêtre de réglages
+  for (const r of document.querySelectorAll('input[name=moteur]')) r.checked = r.value === Voix.settings.moteur;
+  document.querySelector('input[name=moteur][value=naturelle]').disabled = !natInstalled;
+  $("natInstall").hidden = natInstalled;
+  $("natInfo").textContent = natInstalled
+    ? "Plus claire et moins robotique. Installée : marche sans internet."
+    : "Plus claire et moins robotique. Marche sans internet une fois installée (environ 82 Mo).";
+  const sel = $("sysVoice"), vs = Voix.systemVoices();
+  sel.innerHTML = "";
+  for (const v of vs){
+    const o = document.createElement("option");
+    o.value = v.name; o.textContent = v.name + (v.localService ? "" : " (en ligne)");
+    if (sv && v.name === sv.name) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.disabled = !vs.length;
+  if (Voix.settings.moteur === "naturelle") Voix.warm();
+}
+if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = refreshVoice;
+
+let installing = false;
+async function installNatural(bar, btn){
+  if (installing) return;
+  installing = true;
+  for (const b of [$("installBtn"), $("natInstall")]) b.disabled = true;
+  for (const b of [$("installBar"), $("natBar")]) b.hidden = false;
+  const label = btn.textContent;
+  try {
+    await Voix.install(p => {
+      for (const b of [$("installBar"), $("natBar")]) b.firstElementChild.style.width = Math.round(p * 100) + "%";
+      btn.textContent = "Téléchargement… " + Math.round(p * 100) + " %";
+    });
+    Voix.set("moteur", "naturelle");
+    toast("Voix naturelle installée !");
+  } catch (err){
+    console.error(err);
+    toast(navigator.onLine === false ? "Il faut internet pour installer la voix." : "Installation interrompue : " + (err.message || err));
+  } finally {
+    installing = false; btn.textContent = label;
+    for (const b of [$("installBtn"), $("natInstall")]) b.disabled = false;
+    for (const b of [$("installBar"), $("natBar")]) b.hidden = true;
+    refreshVoice();
+  }
+}
+$("installBtn").onclick = () => installNatural($("installBar"), $("installBtn"));
+$("natInstall").onclick = e => { e.preventDefault(); installNatural($("natBar"), $("natInstall")); };
+const openVoix = () => { refreshVoice(); $("voixDlg").showModal(); };
+$("voixBtn").onclick = openVoix;
+$("voiceChip").onclick = openVoix;
+for (const r of document.querySelectorAll('input[name=moteur]')){
+  r.onchange = () => { if (r.checked){ Voix.set("moteur", r.value); if (playing) playFrom(cur.seg, cur.word); refreshVoice(); } };
+}
+$("sysVoice").onchange = e => { Voix.set("voixSysteme", e.target.value); refreshVoice(); };
+$("essaiBtn").onclick = () => {
+  stop(); Voix.unlock();
+  Voix.speak("Bonjour ! Je vais te lire la page, phrase par phrase. Tu peux toucher un mot pour commencer là.".split(" "),
+    { rate: rate(), onError: m => toast(m) });
+};
+$("voixDlg").addEventListener("close", () => Voix.stop());
+$("rate").oninput = () => setRate(parseFloat($("rate").value), false);
+$("rate").onchange = () => setRate(parseFloat($("rate").value), true);
+$("rate2").oninput = () => setRate(parseFloat($("rate2").value), false);
+$("rate2").onchange = () => setRate(parseFloat($("rate2").value), true);
+setRate(Voix.settings.vitesse || 0.9, false);
+refreshVoice();
+
+/* ---------- UI ---------- */
+function show(view){
+  for (const v of ["home","busy","reader"]) $(v).hidden = v !== view;
+  $("controls").hidden = view !== "reader";
+  $("newBtn").hidden = view !== "reader";
+}
+let toastT;
+function toast(msg){
+  $("toast").textContent = msg; $("toast").hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => $("toast").hidden = true, 3500);
+}
+function setPlayIcon(){
+  $("playIcon").innerHTML = playing
+    ? '<rect x="6" y="5" width="4" height="14" fill="currentColor"/><rect x="14" y="5" width="4" height="14" fill="currentColor"/>'
+    : '<path d="M7 4l13 8-13 8z" fill="currentColor"/>';
+  $("playBtn").setAttribute("aria-label", playing ? "Pause" : "Lire");
+}
+
+/* ---------- Image : chargement + prétraitement ---------- */
+function loadImage(file){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("Image illisible"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+function onStep(msg, p){
+  $("busyText").textContent = msg;
+  if (typeof p === "number") $("busyBar").style.width = Math.round(p * 100) + "%";
+}
+
+/* ---------- Superposition (surlignage + clic) ---------- */
+function drawOverlay(w, h){
+  const svg = $("overlay");
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.innerHTML = "";
+  const pad = Math.max(2, Math.round(w / 400));
+  for (const wd of words){
+    wd.rects = wd.boxes.map(b => {
+      const r = document.createElementNS(SVGNS, "rect");
+      r.setAttribute("x", b.x0 - pad); r.setAttribute("y", b.y0 - pad);
+      r.setAttribute("width", b.x1 - b.x0 + 2 * pad); r.setAttribute("height", b.y1 - b.y0 + 2 * pad);
+      svg.appendChild(r); return r;
+    });
+  }
+}
+let lastSeg = -1, lastWord = -1;
+function highlight(si, wi){
+  if (si !== lastSeg){
+    if (segs[lastSeg]) segs[lastSeg].wordIdx.forEach(i => cls(i, "in-seg", false));
+    if (segs[si]) segs[si].wordIdx.forEach(i => cls(i, "in-seg", true));
+    lastSeg = si;
+    const first = segs[si] && words[segs[si].wordIdx[0]];
+    if (first) first.rects[0].scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  if (words[lastWord]) cls(lastWord, "now", false);
+  if (wi >= 0 && words[wi]) cls(wi, "now", true);
+  lastWord = wi;
+}
+function cls(i, c, on){ for (const r of words[i].rects) r.classList.toggle(c, on); }
+function wordAt(x, y){
+  let best = -1, bestD = Infinity;
+  words.forEach((w, i) => w.boxes.forEach(b => {
+    const dx = Math.max(b.x0 - x, 0, x - b.x1), dy = Math.max(b.y0 - y, 0, y - b.y1);
+    const d = dx * dx + dy * dy * 4; // on privilégie la bonne ligne
+    if (d < bestD){ bestD = d; best = i; }
+  }));
+  return best;
+}
+$("overlay").addEventListener("click", e => {
+  if (!words.length) return;
+  const svg = $("overlay"), r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+  const x = (e.clientX - r.left) * vb.width / r.width, y = (e.clientY - r.top) * vb.height / r.height;
+  const wi = wordAt(x, y);
+  if (wi < 0) return;
+  // petit retour visuel du toucher
+  const c = document.createElementNS(SVGNS, "circle");
+  c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", vb.width / 25); c.classList.add("tap");
+  svg.appendChild(c); setTimeout(() => c.remove(), 400);
+  Voix.unlock(); playFrom(words[wi].seg, 0);
+});
+
+/* ---------- Lecture ---------- */
+function playFrom(si, k = 0){
+  if (si < 0) si = 0;
+  if (si >= segs.length){ stop(); cur = { seg: 0, word: 0 }; highlight(-1, -1); return; }
+  const my = ++token;
+  playing = true; setPlayIcon();
+  cur = { seg: si, word: k };
+  const seg = segs[si];
+  const ids = seg.wordIdx.slice(k);
+  highlight(si, ids[0]);
+  Voix.speak(ids.map(i => words[i].text), {
+    rate: rate(),
+    onWord: j => { if (my !== token) return; cur.word = k + j; highlight(si, ids[j]); },
+    onEnd: () => { if (my === token && playing) playFrom(si + 1, 0); },
+    onWait: on => { if (my === token) $("playBtn").setAttribute("aria-busy", on ? "true" : "false"); },
+    onError: (msg, continuing) => { if (my !== token) return; toast(msg); if (!continuing) stop(); }
+  });
+  // on prépare déjà la phrase suivante (voix naturelle) pour enchaîner sans attendre
+  if (segs[si + 1]) Voix.prefetch(segs[si + 1].wordIdx.map(i => words[i].text), rate());
+}
+function stop(){ token++; playing = false; Voix.stop(); setPlayIcon(); }
+
+$("playBtn").onclick = () => {
+  Voix.unlock();
+  if (playing) stop();                      // pause : on garde cur (phrase + mot)
+  else playFrom(cur.seg, cur.word);         // reprise au mot où on s'était arrêté
+};
+$("prevBtn").onclick = () => {
+  // en plein milieu d'une phrase : on la relit ; au début : phrase précédente
+  const target = cur.word > 1 ? cur.seg : cur.seg - 1;
+  playFrom(Math.max(0, target), 0);
+};
+$("nextBtn").onclick = () => playFrom(Math.min(segs.length - 1, cur.seg + 1), 0);
+
+/* ---------- Enchaînement ---------- */
+async function handleFile(file){
+  if (!file) return;
+  stop();
+  show("busy"); $("busyBar").style.width = "0"; $("busyText").textContent = "Préparation…";
+  try{
+    const img = await loadImage(file);
+    const page = await OCR.read(img, onStep);
+    URL.revokeObjectURL(img.src);
+    $("photo").src = page.canvas.toDataURL("image/jpeg", 0.88);
+    ({ words, segs } = Phrases.build(page.lines));
+    $("rawText").textContent = segs.map(s => s.text).join("\n");
+    if (!segs.length){ show("home"); toast("Je n'ai pas trouvé de texte. Essaie avec plus de lumière, la feuille bien à plat."); return; }
+    show("reader");
+    drawOverlay(page.width, page.height);
+    cur = { seg: 0, word: 0 }; lastSeg = lastWord = -1;
+    highlight(0, -1);
+    Voix.prefetch(segs[0].wordIdx.map(i => words[i].text), rate());
+  } catch (err){
+    console.error(err);
+    show("home");
+    toast(navigator.onLine === false
+      ? "Il faut internet la première fois pour charger le lecteur."
+      : "Erreur : " + (err && err.message || err));
+  }
+}
+for (const id of ["file1","file2","file3"]){
+  $(id).addEventListener("change", e => { handleFile(e.target.files[0]); e.target.value = ""; });
+}
+// on prépare le lecteur dès que la page est au repos : la première photo sera plus rapide
+(window.requestIdleCallback || (f => setTimeout(f, 1500)))(() => OCR.load().catch(err => {
+  console.error(err);
+  toast("Le lecteur n'a pas pu se charger. Ouvre la page une fois avec internet.");
+}));
+
+/* ---------- Hors ligne ---------- */
+function setOff(ok, msg){ const c = $("offChip"); c.className = "chip " + (ok ? "ok" : "warn"); c.textContent = msg; }
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+  navigator.serviceWorker.addEventListener("message", e => {
+    if (e.data && e.data.type === "cached") setOff(true, "Prête hors ligne");
+    if (e.data && e.data.type === "cache-error") setOff(false, "Téléchargement incomplet, rouvre avec internet");
+  });
+  navigator.serviceWorker.register("sw.js").then(async () => {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg.active) reg.active.postMessage({ type: "check" });
+  }).catch(() => setOff(false, "Mode hors ligne indisponible"));
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+} else {
+  setOff(false, location.protocol === "https:" ? "Mode hors ligne non supporté" : "Hors ligne : ouvre la page depuis son adresse https");
+}
+</script>
+</body>
+</html>

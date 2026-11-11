@@ -1,0 +1,4 @@
+# Netlify : isole la page pour autoriser le calcul sur plusieurs cœurs (lecture de la photo et voix plus rapides)
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp

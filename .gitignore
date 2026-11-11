@@ -1,0 +1,8 @@
+# Banc de test : les photos (dont certaines ne nous appartiennent pas) et les rapports restent sur l'ordinateur.
+# Les textes attendus (.txt) et les scripts sont gardés ; python tests/generer.py recrée les pages synthétiques.
+tests/resultats/
+tests/pages/*.jpg
+tests/pages/*.jpeg
+tests/pages/*.png
+__pycache__/
+*.pyc
